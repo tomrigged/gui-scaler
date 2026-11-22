@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "nl.fracgui.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "MinecraftClientMixin",
+    "VideoOptionsScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
