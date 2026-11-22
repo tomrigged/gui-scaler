@@ -1,22 +1,31 @@
 package nl.fracgui;
 
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.SimpleOption;
+import net.minecraft.client.util.Window;
 import net.minecraft.text.Text;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class FracGui implements ClientModInitializer {
-    /** GUI-schaal in tienden: 23 = 2.3x */
     public static int tenths = 20;
-
-    private static SimpleOption<Integer> option;
 
     private static Path configPath() {
         return FabricLoader.getInstance().getConfigDir().resolve("fracgui.txt");
+    }
+
+    public static void setTenths(int value) {
+        tenths = Math.max(10, Math.min(60, value));
+        try {
+            Files.writeString(configPath(), Integer.toString(tenths));
+        } catch (Exception ignored) {
+        }
     }
 
     @Override
@@ -28,29 +37,35 @@ public class FracGui implements ClientModInitializer {
             }
         } catch (Exception ignored) {
         }
+
+        ClientTickEvents.END_CLIENT_TICK.register(FracGui::apply);
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
+                dispatcher.register(ClientCommandManager.literal("guiscale")
+                        .executes(ctx -> {
+                            MinecraftClient c = MinecraftClient.getInstance();
+                            c.send(() -> c.setScreen(new GuiScaleScreen()));
+                            return 1;
+                        })
+                        .then(ClientCommandManager.argument("factor", DoubleArgumentType.doubleArg(1.0, 6.0))
+                                .executes(ctx -> {
+                                    double f = DoubleArgumentType.getDouble(ctx, "factor");
+                                    setTenths((int) Math.round(f * 10));
+                                    ctx.getSource().sendFeedback(Text.literal("GUI-schaal: " + (tenths / 10.0) + "x"));
+                                    return 1;
+                                }))));
     }
 
-    private static void save() {
-        try {
-            Files.writeString(configPath(), Integer.toString(tenths));
-        } catch (Exception ignored) {
+    private static void apply(MinecraftClient client) {
+        Window w = client.getWindow();
+        if (w == null) return;
+        double max = Math.min(w.getFramebufferWidth() / 320.0, w.getFramebufferHeight() / 240.0);
+        double target = Math.max(1.0, Math.min(tenths / 10.0, max));
+        if (Math.abs(w.getScaleFactor() - target) > 1.0E-6) {
+            w.setScaleFactor(target);
+            if (client.currentScreen != null) {
+                client.currentScreen.resize(client, w.getScaledWidth(), w.getScaledHeight());
+            }
         }
-    }
-
-    public static SimpleOption<Integer> option() {
-        if (option == null) {
-            option = new SimpleOption<>(
-                    "fracgui.option",
-                    SimpleOption.emptyTooltip(),
-                    (label, value) -> Text.literal("GUI Scale (precies): " + (value / 10.0) + "x"),
-                    new SimpleOption.ValidatingIntSliderCallbacks(10, 60),
-                    tenths,
-                    value -> {
-                        tenths = value;
-                        save();
-                        MinecraftClient.getInstance().onResolutionChanged();
-                    });
-        }
-        return option;
     }
 }
