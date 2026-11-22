@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "id": "fracgui",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Fractional GUI Scale",
-  "description": "Stel de GUI-schaal in met een slider, ook tussen de hele getallen (bijv. 2.3x).",
+  "description": "Stel de GUI-schaal precies in (bijv. 2.3x) met /guiscale.",
   "environment": "client",
   "entrypoints": {
     "client": ["nl.fracgui.FracGui"]
   },
-  "mixins": ["fracgui.mixins.json"],
   "depends": {
     "fabricloader": ">=0.16.0",
     "minecraft": "~1.21.11",
-    "java": ">=21"
+    "java": ">=21",
+    "fabric-api": "*"
   }
 }
