@@ -139,6 +139,9 @@ public class FracGui implements ClientModInitializer {
             if (w.getScaleFactor() != wantInt) w.setScaleFactor(wantInt);
             fieldScaledW.setInt(w, wantW);
             fieldScaledH.setInt(w, wantH);
+            if (client.currentScreen != null) {
+                client.currentScreen.resize(wantW, wantH);
+            }
         } catch (Throwable ignored) {
         }
     }
