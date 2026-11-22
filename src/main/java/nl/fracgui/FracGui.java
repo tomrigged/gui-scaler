@@ -90,3 +90,56 @@ public class FracGui implements ClientModInitializer {
         probed = true;
         try {
             int orig = w.getScaleFactor();
+            List<Field> fields = intFields();
+
+            w.setScaleFactor(1);
+            int sw1 = w.getScaledWidth(), sh1 = w.getScaledHeight();
+            int[] a = snapshot(fields, w);
+
+            w.setScaleFactor(2);
+            int sw2 = w.getScaledWidth(), sh2 = w.getScaledHeight();
+            int[] b = snapshot(fields, w);
+
+            w.setScaleFactor(orig);
+
+            List<Field> wc = new ArrayList<>();
+            List<Field> hc = new ArrayList<>();
+            for (int i = 0; i < fields.size(); i++) {
+                if (sw1 != sw2 && a[i] == sw1 && b[i] == sw2) wc.add(fields.get(i));
+                if (sh1 != sh2 && a[i] == sh1 && b[i] == sh2) hc.add(fields.get(i));
+            }
+            if (!wc.isEmpty() && !hc.isEmpty()) {
+                fieldScaledW = wc.get(0);
+                fieldScaledH = hc.size() > 1 && hc.get(0) == fieldScaledW ? hc.get(1) : hc.get(0);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    public static void apply(MinecraftClient client) {
+        Window w = client.getWindow();
+        if (w == null) return;
+
+        int fbW = w.getFramebufferWidth();
+        int fbH = w.getFramebufferHeight();
+        if (fbW <= 0 || fbH <= 0) return;
+
+        double max = Math.min(fbW / 320.0, fbH / 240.0);
+        double target = Math.max(1.0, Math.min(tenths / 10.0, max));
+        int wantInt = (int) Math.max(1, Math.round(target));
+        int wantW = (int) Math.ceil(fbW / target);
+        int wantH = (int) Math.ceil(fbH / target);
+
+        if (w.getScaleFactor() == wantInt && w.getScaledWidth() == wantW && w.getScaledHeight() == wantH) return;
+
+        if (!probed) probe(w);
+        if (fieldScaledW == null || fieldScaledH == null) return;
+
+        try {
+            if (w.getScaleFactor() != wantInt) w.setScaleFactor(wantInt);
+            fieldScaledW.setInt(w, wantW);
+            fieldScaledH.setInt(w, wantH);
+        } catch (Throwable ignored) {
+        }
+    }
+}
