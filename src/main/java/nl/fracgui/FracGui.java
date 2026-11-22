@@ -10,11 +10,19 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.Window;
 import net.minecraft.text.Text;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public class FracGui implements ClientModInitializer {
     public static int tenths = 20;
+
+    private static boolean probed = false;
+    private static Field fieldScaledW;
+    private static Field fieldScaledH;
 
     private static Path configPath() {
         return FabricLoader.getInstance().getConfigDir().resolve("fracgui.txt");
@@ -56,16 +64,29 @@ public class FracGui implements ClientModInitializer {
                                 }))));
     }
 
-    private static void apply(MinecraftClient client) {
-        Window w = client.getWindow();
-        if (w == null) return;
-        double max = Math.min(w.getFramebufferWidth() / 320.0, w.getFramebufferHeight() / 240.0);
-        double target = Math.max(1.0, Math.min(tenths / 10.0, max));
-        if (Math.abs(w.getScaleFactor() - target) > 1.0E-6) {
-            w.setScaleFactor(target);
-            if (client.currentScreen != null) {
-                client.currentScreen.resize(client, w.getScaledWidth(), w.getScaledHeight());
+    private static List<Field> intFields() {
+        List<Field> list = new ArrayList<>();
+        for (Field f : Window.class.getDeclaredFields()) {
+            if (f.getType() == int.class && !Modifier.isStatic(f.getModifiers())) {
+                try {
+                    f.setAccessible(true);
+                    list.add(f);
+                } catch (Exception ignored) {
+                }
             }
         }
+        return list;
     }
-}
+
+    private static int[] snapshot(List<Field> fields, Window w) throws Exception {
+        int[] out = new int[fields.size()];
+        for (int i = 0; i < out.length; i++) out[i] = fields.get(i).getInt(w);
+        return out;
+    }
+
+    // Zoekt de velden voor geschaalde breedte/hoogte zonder hun namen te kennen:
+    // we zetten de schaal tijdelijk op 1 en 2 en kijken welke velden meebewegen.
+    private static void probe(Window w) {
+        probed = true;
+        try {
+            int orig = w.getScaleFactor();
